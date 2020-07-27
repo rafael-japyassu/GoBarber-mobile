@@ -1,0 +1,152 @@
+import React, { useRef, useCallback } from 'react';
+import {
+  Image,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TextInput,
+  Alert,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
+import { Form } from '@unform/mobile';
+import { FormHandles } from '@unform/core';
+import * as Yup from 'yup';
+import api from '../../services/api';
+import Input from '../../components/Input';
+import Button from '../../components/Button';
+import getValidationError from '../../utils/getValidationErrors';
+import logoImage from '../../assets/logo.png';
+
+import { Container, Title, BacToSignIn, BacToSignInText } from './styles';
+
+interface SignUpFormData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+const SignUp: React.FC = () => {
+  const navigation = useNavigation();
+  const inputPasswordRef = useRef<TextInput>(null);
+  const inputMailRef = useRef<TextInput>(null);
+  const formRef = useRef<FormHandles>(null);
+
+  const handleSignUp = useCallback(
+    async (data: SignUpFormData) => {
+      try {
+        formRef.current?.setErrors({});
+        const schema = Yup.object().shape({
+          name: Yup.string().required('Nome obrigatório'),
+          email: Yup.string()
+            .email('Digite um e-mail válido')
+            .required('E-mail obrigatório'),
+          password: Yup.string().min(6, 'No mínimo 6 dígitos'),
+        });
+
+        await schema.validate(data, {
+          abortEarly: false,
+        });
+
+        await api.post('/users', data);
+
+        Alert.alert(
+          'Cadastro realizado com sucesso!',
+          'Você já pode fazer seu login na aplicação!',
+        );
+
+        navigation.navigate('SignIn');
+      } catch (error) {
+        if (error instanceof Yup.ValidationError) {
+          const errors = getValidationError(error);
+          formRef.current?.setErrors(errors);
+
+          return;
+        }
+        Alert.alert(
+          'Erro no cadastro',
+          'Ocorreu um erro ao realizar seu cadastro, tente novamente!',
+        );
+      }
+    },
+    [navigation],
+  );
+
+  return (
+    <>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled
+      >
+        <ScrollView
+          contentContainerStyle={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Container>
+            <Image source={logoImage} />
+            <View>
+              <Title>Crie sua conta</Title>
+            </View>
+
+            <Form
+              ref={formRef}
+              onSubmit={handleSignUp}
+              style={{ width: '100%' }}
+            >
+              <Input
+                autoCapitalize="words"
+                name="name"
+                icon="user"
+                placeholder="Nome"
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  inputMailRef.current?.focus();
+                }}
+              />
+              <Input
+                ref={inputMailRef}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                name="email"
+                icon="mail"
+                placeholder="E-mail"
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  inputPasswordRef.current?.focus();
+                }}
+              />
+              <Input
+                ref={inputPasswordRef}
+                secureTextEntry
+                name="password"
+                icon="lock"
+                placeholder="Senha"
+                returnKeyType="send"
+                onSubmitEditing={() => {
+                  formRef.current?.submitForm();
+                }}
+              />
+
+              <Button
+                onPress={() => {
+                  formRef.current?.submitForm();
+                }}
+              >
+                Cadastrar
+              </Button>
+            </Form>
+          </Container>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <BacToSignIn onPress={() => navigation.goBack()}>
+        <Icon name="arrow-left" size={20} color="#fff" />
+        <BacToSignInText>Voltar para o logon</BacToSignInText>
+      </BacToSignIn>
+    </>
+  );
+};
+
+export default SignUp;
